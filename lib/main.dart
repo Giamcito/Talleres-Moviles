@@ -1,172 +1,248 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
+// Pantalla principal con navegación y paso de parámetros
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
+    // Configuración de rutas con go_router
+    final GoRouter _router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: '/detail/:value',
+          builder: (context, state) {
+            final value = state.pathParameters['value'] ?? '';
+            return DetailScreen(value: value);
+          },
+        ),
+      ],
+    );
+
+    return MaterialApp.router(
+      title: 'Demo Navegación y Ciclo de Vida',
+      routerConfig: _router,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const HomePage(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+// Pantalla principal con botones para navegar usando go, push y replace
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomePageState extends State<HomePage> {
-  String _title = "Hola, Flutter";
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
-  void _toggleTitle() {
-    setState(() {
-      _title = _title == "Hola, Flutter" ? "¡Titulo cambiado!" : "Hola, Flutter";
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Titulo actualizado")),
-    );
+  // Ciclo de vida: initState
+  @override
+  void initState() {
+    super.initState();
+    print('HomeScreen: initState'); // Se ejecuta una vez al crear el widget
+    _tabController = TabController(length: 2, vsync: this);
   }
 
+  // Ciclo de vida: didChangeDependencies
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    print('HomeScreen: didChangeDependencies'); // Se ejecuta cuando cambian dependencias del contexto
+  }
+
+  // Ciclo de vida: build
   @override
   Widget build(BuildContext context) {
+    print('HomeScreen: build'); // Se ejecuta cada vez que el widget se reconstruye
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title),
-        backgroundColor: const Color.fromARGB(255, 212, 69, 193),
+        title: const Text('Pantalla Principal'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.grid_on), text: 'Grid'),
+            Tab(icon: Icon(Icons.info), text: 'Info'),
+          ],
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      drawer: Drawer( // Widget adicional: Drawer
+        child: ListView(
+          children: const [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Colors.deepPurple),
+              child: Text('Drawer Header', style: TextStyle(color: Colors.white)),
+            ),
+            ListTile(
+              leading: Icon(Icons.home),
+              title: Text('Inicio'),
+            ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text('Configuración'),
+            ),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Primer tab: GridView
+          GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: 9,
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: () {
+                  print('HomeScreen: setState (Grid item tapped)');
+                  setState(() {}); // Evidencia de setState
+                  // Navegación con go, push y replace
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Navegación'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              // go: reemplaza la ruta actual
+                              context.go('/detail/${index + 1}');
+                            },
+                            child: const Text('Ir con go (reemplaza)'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              // push: agrega una nueva ruta encima
+                              context.push('/detail/${index + 1}');
+                            },
+                            child: const Text('Ir con push (apila)'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              // replace: reemplaza la ruta actual
+                              context.replace('/detail/${index + 1}');
+                            },
+                            child: const Text('Ir con replace (reemplaza)'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  color: Colors.deepPurple[100 * ((index % 8) + 1)],
+                  child: Center(
+                    child: Text('Item ${index + 1}'),
+                  ),
+                ),
+              );
+            },
+          ),
+          // Segundo tab: Información
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text('Este es el segundo tab.'),
+                SizedBox(height: 16),
+                Icon(Icons.info, size: 48),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Ciclo de vida: dispose
+  @override
+  void dispose() {
+    print('HomeScreen: dispose'); // Se ejecuta al destruir el widget
+    _tabController.dispose();
+    super.dispose();
+  }
+}
+
+// Pantalla secundaria que recibe y muestra un parámetro
+class DetailScreen extends StatefulWidget {
+  final String value;
+  const DetailScreen({super.key, required this.value});
+
+  @override
+  State<DetailScreen> createState() => _DetailScreenState();
+}
+
+class _DetailScreenState extends State<DetailScreen> {
+  // Ciclo de vida: initState
+  @override
+  void initState() {
+    super.initState();
+    print('DetailScreen: initState');
+  }
+
+  // Ciclo de vida: didChangeDependencies
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    print('DetailScreen: didChangeDependencies');
+  }
+
+  // Ciclo de vida: build
+  @override
+  Widget build(BuildContext context) {
+    print('DetailScreen: build');
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Detalle'),
+      ),
+      body: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 167, 252, 255),
-                border: Border.all(color: const Color.fromARGB(255, 71, 188, 218)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text(
-                  "Nombre: Juan Camilo Giraldo Amaya",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // ImageRow
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Image.network(
-                  'https://db.pokemongohub.net/_next/image?url=%2Fimages%2Fofficial%2Ffull%2F134.webp&w=640&q=75',
-                  width: 80,
-                  height: 80,
-                ),
-                Image.network(
-                  'https://img.pokemondb.net/artwork/large/jolteon.jpg',
-                  width: 80,
-                  height: 80,
-                ),
-                Image.network(
-                  'https://db.pokemongohub.net/_next/image?url=%2Fimages%2Fofficial%2Ffull%2F136.webp&w=640&q=75',
-                  width: 80,
-                  height: 80,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // AssetImageRow
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Image.asset(
-                  'assets/images/sylveon.jpg',
-                  width: 80,
-                  height: 80,
-                ),
-                Image.asset(
-                  'assets/images/sylveon.jpg',
-                  width: 80,
-                  height: 80,
-                ),
-                Image.asset(
-                  'assets/images/sylveon.jpg',
-                  width: 80,
-                  height: 80,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            Text('Valor recibido: ${widget.value}', style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _toggleTitle,
-              child: const Text("Cambiar título"),
-            ),
-            const SizedBox(height: 12),
-            // SimpleList
-            Expanded(
-              child: ListView(
-                children: const [
-                  ListTile(
-                    leading: Icon(Icons.star),
-                    title: Text('Estrella'),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.face),
-                    title: Text('Cara'),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.favorite),
-                    title: Text('Corazon'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // ImageStack
-            SizedBox(
-              height: 120,
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    child: Image.network(
-                      'https://db.pokemongohub.net/_next/image?url=%2Fimages%2Fofficial%2Ffull%2F134.webp&w=640&q=75',
-                      width: 100,
-                      height: 100,
-                    ),
-                  ),
-                  Positioned(
-                    left: 40,
-                    child: Image.network(
-                      'https://img.pokemondb.net/artwork/large/jolteon.jpg',
-                      width: 100,
-                      height: 100,
-                    ),
-                  ),
-                  Positioned(
-                    left: 80,
-                    child: Image.network(
-                      'https://db.pokemongohub.net/_next/image?url=%2Fimages%2Fofficial%2Ffull%2F136.webp&w=640&q=75',
-                      width: 100,
-                      height: 100,
-                    ),
-                  ),
-                ],
-              ),
+              onPressed: () {
+                print('DetailScreen: botón volver');
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  // Si no se puede hacer pop, navega a la pantalla principal
+                  context.go('/');
+                }
+              },
+              child: const Text('Volver'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  // Ciclo de vida: dispose
+  @override
+  void dispose() {
+    print('DetailScreen: dispose');
+    super.dispose();
   }
 }
