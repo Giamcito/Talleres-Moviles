@@ -52,4 +52,38 @@ samples, guidance on mobile development, and a full API reference.
 - **TabBar**: Facilita la organización de contenido en secciones.
 - **Drawer**: Añade navegación adicional y mejora la experiencia de usuario.
 
----
+# Talleres-Moviles - Async, Timer e Isolate
+
+## Qué incluye
+- Demo de Future + async/await (simulación con Future.delayed).
+- Cronómetro con Timer (Iniciar / Pausar / Reanudar / Reiniciar).
+- Tarea CPU-bound ejecutada en un Isolate y comunicación por mensajes.
+
+## Cuándo usar cada cosa
+- Future / async/await:
+  - Para operaciones asíncronas que no bloquean la UI (I/O, consultas, delays).
+  - Usar cuando quieres escribir código secuencial sin bloquear el hilo principal.
+- Timer:
+  - Para tareas periódicas o temporizadores (cronómetro, refresco cada X ms).
+  - Cancelar el Timer al pausar o en dispose para liberar recursos.
+- Isolate:
+  - Para tareas CPU-bound que bloquearían la UI si se ejecutan en el hilo principal.
+  - Crear un Isolate y comunicar mediante SendPort/ReceivePort.
+
+## Pantallas / flujo
+- Pantalla principal (Tab bar):
+  - Async: botón "Consultar (async)". Muestra estados: Idle → Cargando… → Éxito / Error.
+    - Logs: antes del await, durante delay, después del await.
+  - Timer: cronómetro actualizado cada 100 ms. Botones: Iniciar / Pausar / Reanudar / Reiniciar.
+    - Cancela el Timer en pause y en dispose.
+  - Isolate: botón para ejecutar la tarea pesada (suma grande). Se crea un Isolate, se envía N, se recibe resultado por ReceivePort y se muestra en UI.
+
+## Notas de implementación
+- simulatedFetch usa Future.delayed(2–3s) y lanza error aleatorio para poder ver estado Error.
+- heavyComputeEntry es función top-level usada por Isolate.spawn.
+- Se imprimen trazas en consola mostrando el orden de ejecución para cada demo.
+
+## Flujo de uso recomendado
+1. Usar Future/async para operaciones I/O y UX fluidas.
+2. Usar Timer para mecánicas de tiempo controladas.
+3. Usar Isolate para offload de cómputo pesado; pasar resultados por SendPort.
