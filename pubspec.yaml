@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # HTTP client para llamadas REST
+  http: ^1.5.0
   characters: ^1.4.0
   material_color_utilities: 0.11.1
   meta: 1.16.0
@@ -62,10 +64,6 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - lib/assets/images/
-    - lib/assets/images/sylveon.jpg
-
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
