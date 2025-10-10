@@ -225,6 +225,8 @@ void heavyComputeEntry(dynamic message) {
 
 // AsyncDemo: muestra estados Cargando / Éxito / Error usando async/await
 class AsyncDemo extends StatefulWidget {
+  const AsyncDemo({super.key});
+
   @override
   _AsyncDemoState createState() => _AsyncDemoState();
 }
@@ -277,6 +279,8 @@ class _AsyncDemoState extends State<AsyncDemo> {
 
 // TimerDemo: cronómetro con Start / Pause / Resume / Reset
 class TimerDemo extends StatefulWidget {
+  const TimerDemo({super.key});
+
   @override
   _TimerDemoState createState() => _TimerDemoState();
 }
@@ -374,6 +378,8 @@ class _TimerDemoState extends State<TimerDemo> {
 
 // IsolateDemo: ejecuta una tarea CPU-bound en un Isolate y muestra resultado
 class IsolateDemo extends StatefulWidget {
+  const IsolateDemo({super.key});
+
   @override
   _IsolateDemoState createState() => _IsolateDemoState();
 }
