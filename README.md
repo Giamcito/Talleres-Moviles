@@ -87,3 +87,46 @@ samples, guidance on mobile development, and a full API reference.
 1. Usar Future/async para operaciones I/O y UX fluidas.
 2. Usar Timer para mecánicas de tiempo controladas.
 3. Usar Isolate para offload de cómputo pesado; pasar resultados por SendPort.
+
+# Proyecto: Listado y Detalle usando api.chucknorris.io
+
+API usada
+- Endpoint principal para listado (búsqueda):
+  GET https://api.chucknorris.io/jokes/search?query={query}
+- Endpoint para detalle por id:
+  GET https://api.chucknorris.io/jokes/{id}
+
+Ejemplo de respuesta (search -> body.result[]):
+{
+  "categories": [],
+  "created_at": "2020-01-05 13:42:23.484083",
+  "icon_url": "https://assets.chucknorris.host/img/avatar/chuck-norris.png",
+  "id": "abc123",
+  "updated_at": "2020-01-05 13:42:23.484083",
+  "url": "https://api.chucknorris.io/jokes/abc123",
+  "value": "Chuck Norris joke text..."
+}
+
+Arquitectura mínima propuesta (carpetas)
+- lib/models/    -> Joke model (fromJson)
+- lib/services/  -> ChuckService (HTTP, manejo de statusCode y errores)
+- lib/views/     -> ListScreen (listado) y DetailScreen (detalle)
+- lib/main.dart  -> Configuración de rutas con go_router y arranque
+
+Rutas definidas (go_router)
+- name: home, path: '/' -> ListScreen (no params)
+- name: detail, path: '/detail/:id' -> DetailScreen
+  Parámetros enviados:
+    - path param 'id' (obligatorio)
+    - extra: objeto Joke (opcional, si se tiene desde la lista)
+
+Buenas prácticas aplicadas
+- No se realizan peticiones en build(); se usan initState() y servicios.
+- Manejo de estados: cargando / éxito / error con mensajes y Snackbar.
+- Validación de statusCode y rethrow para mostrar errores amigables.
+
+Notas
+- Añadir dependencia HTTP en pubspec.yaml si no existe:
+  dependencies:
+    http: ^0.13.0
+- Capturas/GIFs: generar localmente (Listado, Detalle, estado de carga/ error).
