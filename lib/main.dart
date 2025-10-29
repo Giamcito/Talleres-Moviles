@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
-import 'models/joke.dart';
-import 'views/detail_screen.dart';
-import 'views/list_screen.dart';
+import 'providers/auth_provider.dart';
+import 'views/login_view.dart';
+import 'views/evidence_view.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,38 +14,39 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final GoRouter router = GoRouter(
-      routes: [
-        GoRoute(
-          name: 'home',
-          path: '/',
-          builder: (context, state) => const ListScreen(),
-        ),
-        GoRoute(
-          name: 'detail',
-          path: '/detail/:id',
-          builder: (context, state) {
-            final id = state.pathParameters['id'] ?? '';
-            final extra = state.extra;
-            Joke? joke;
-            if (extra is Joke) {
-              joke = extra;
-              print('Main: navegando a Detail - id=$id extra disponible');
-            } else {
-              print('Main: navegando a Detail - id=$id no hay extra (se hará fetch en detalle si aplica)');
-            }
-            return DetailScreen(jokeId: id, initialJoke: joke);
-          },
-        ),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()..init()),
       ],
-    );
-
-    return MaterialApp.router(
-      title: 'Chuck Norris Jokes - Listado y Detalle',
-      routerConfig: router,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      child: Consumer<AuthProvider>(
+        builder: (context, auth, _) {
+          return MaterialApp(
+            title: 'Módulo JWT - Evidencia',
+            theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo)),
+            routes: {
+              '/login': (_) => const LoginView(),
+              '/evidence': (_) => const EvidenceView(),
+            },
+            home: !_ensureInit(auth)
+                ? const _Splash()
+                : (auth.status == AuthStatus.authenticated
+                    ? const EvidenceView()
+                    : const LoginView()),
+          );
+        },
       ),
+    );
+  }
+
+  bool _ensureInit(AuthProvider auth) => auth.initialized;
+}
+
+class _Splash extends StatelessWidget {
+  const _Splash();
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
     );
   }
 }
