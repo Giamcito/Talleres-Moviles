@@ -1,52 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'providers/auth_provider.dart';
-import 'views/login_view.dart';
-import 'views/evidence_view.dart';
+import 'core/connectivity/connectivity_service.dart';
+import 'core/sync/sync_service.dart';
+import 'presentation/pages/task_list_page.dart';
+import 'presentation/providers/task_list_provider.dart';
 
-void main() {
-  runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
+  @override
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  bool _initialized = false;
 
   @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()..init()),
-      ],
-      child: Consumer<AuthProvider>(
-        builder: (context, auth, _) {
-          return MaterialApp(
-            title: 'Módulo JWT - Evidencia',
-            theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo)),
-            routes: {
-              '/login': (_) => const LoginView(),
-              '/evidence': (_) => const EvidenceView(),
-            },
-            home: !_ensureInit(auth)
-                ? const _Splash()
-                : (auth.status == AuthStatus.authenticated
-                    ? const EvidenceView()
-                    : const LoginView()),
-          );
-        },
-      ),
-    );
+  void initState() {
+    super.initState();
+    // Inicializar servicios una sola vez.
+    Future.microtask(() {
+      ref.read(connectivityServiceProvider); // inicia escucha
+      ref.read(syncServiceProvider); // inicia sync periódico
+      ref.read(taskListProvider.notifier).loadInitial();
+      _initialized = true;
+      setState(() {});
+    });
   }
 
-  bool _ensureInit(AuthProvider auth) => auth.initialized;
-}
-
-class _Splash extends StatelessWidget {
-  const _Splash();
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    return MaterialApp(
+      title: 'To-Do Offline-First',
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo), useMaterial3: true),
+      home: _initialized ? const TaskListPage() : const Scaffold(body: Center(child: CircularProgressIndicator())),
     );
   }
 }

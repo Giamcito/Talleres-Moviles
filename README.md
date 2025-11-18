@@ -1,132 +1,146 @@
-# Talleres-Moviles
+# To-Do Offline-First (Flutter)
 
-A new Flutter project.
+Aplicación de lista de tareas con arquitectura limpia, gestión de estado con Riverpod, persistencia local (SQLite) y sincronización contra API REST.
 
-## Getting Started
+## Objetivo
+Demostrar un flujo Offline-First: leer desde base local al abrir, permitir operaciones CRUD sin conexión y sincronizar automáticamente cuando vuelve la conectividad.
 
-This project is a starting point for a Flutter application.
+# Api local recursiva
+Se usa una api en la misma carpeta del projecto ("cd Talleres-Moviles/api")
+luego ejecuta npm install y npm start para iniciar api
 
-A few resources to get you started if this is your first Flutter project:
+## Tecnologías
+- Flutter 3.x
+- Riverpod (`flutter_riverpod`) para gestión de estado.
+- SQLite (`sqflite`) para almacenamiento local.
+- `connectivity_plus` para detectar conexión.
+- `http` para consumir API REST.
+- `uuid` para generar identificadores.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Estructura de Carpetas
+```
+lib/
+  domain/entities/        # Modelos de dominio (Task, QueueOperation)
+  data/local/             # SQLite: database y DAOs
+  data/remote/            # Llamadas HTTP a la API
+  data/repositories/      # Lógica Offline-First y cola de operaciones
+  core/connectivity/      # Servicio de conectividad
+  core/sync/              # Servicio de sincronización periódica
+  presentation/providers/ # Riverpod providers (lista, filtros)
+  presentation/pages/     # UI (TaskListPage, EditTaskPage)
+  main.dart               # Arranque y wiring de providers
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Modelo de Datos (SQLite)
+```sql
+CREATE TABLE tasks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  completed INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  deleted INTEGER NOT NULL DEFAULT 0
+);
 
-# Taller Flutter: Navegación, Widgets y Ciclo de Vida
+CREATE TABLE queue_operations (
+  id TEXT PRIMARY KEY,
+  entity TEXT,
+  entity_id TEXT,
+  op TEXT,              -- CREATE | UPDATE | DELETE
+  payload TEXT,
+  created_at INTEGER,
+  attempt_count INTEGER,
+  last_error TEXT
+);
+```
 
-## Arquitectura y Navegación
+## Flujo Offline-First
+1. Apertura app -> se cargan tareas locales inmediatamente.
+2. En segundo plano se intenta refrescar remoto (si hay conexión).
+3. Operaciones (crear, editar, completar, eliminar):
+   - Se aplican localmente (inmediato en UI).
+   - Se encolan en `queue_operations`.
+4. Servicio de sincronización:
+   - Se ejecuta cada 20s y al recuperar conectividad.
+   - Procesa cola: envía operaciones a API.
+   - Si éxito: elimina operación y refresca listado remoto.
+   - Si falla: incrementa `attempt_count` y guarda `last_error` (backoff simple por reintentos repetidos manual/política futura).
+5. Resolución de conflictos: estrategia LWW (Last Write Wins) usando `updatedAt`.
 
-- Se utiliza `go_router` para la navegación entre pantallas.
-- Rutas definidas:
-  - `/` : Pantalla principal (`HomeScreen`)
-  - `/detail/:value` : Pantalla secundaria (`DetailScreen`) que recibe el parámetro `value`.
-- El parámetro se envía desde la pantalla principal al seleccionar un elemento del GridView.
-- Se demuestra la diferencia entre `go`, `push` y `replace`:
-  - `go`: Reemplaza la ruta actual (no permite volver atrás).
-  - `push`: Apila una nueva ruta (permite volver atrás).
-  - `replace`: Reemplaza la ruta actual (similar a `go`).
+## Endpoints Esperados
+```
+GET    /tasks
+POST   /tasks
+GET    /tasks/{id}
+PUT    /tasks/{id}
+DELETE /tasks/{id}
+```
+Formato JSON mínimo: `{ id, title, completed, updatedAt }`.
 
-## Widgets Usados
+## Configuración API
+La URL base se injecta mediante `--dart-define=API_BASE_URL=http://localhost:3000` (por defecto localhost:3000).
 
-- **GridView**: Para mostrar una lista de elementos interactivos.
-- **TabBar y TabBarView**: Para manejar diferentes secciones dentro de la pantalla principal.
-- **Drawer**: Widget adicional para navegación lateral.
-- **AlertDialog**: Para mostrar opciones de navegación.
-- **ElevatedButton**: Para acciones de usuario.
+Ejemplo de ejecución de mock con json-server:
+```bash
+json-server --watch tasks.json --port 3000
+```
+Contenido inicial `tasks.json`:
+```json
+{ "tasks": [] }
+```
 
-## Ciclo de Vida
+## Instalación y Ejecución
+```bash
+flutter clean
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://localhost:3000
+```
 
-- Se registran en consola los métodos del ciclo de vida de los widgets principales:
-  - `initState()`: Inicialización del estado.
-  - `didChangeDependencies()`: Cambios en dependencias del contexto.
-  - `build()`: Construcción del widget.
-  - `setState()`: Actualización del estado.
-  - `dispose()`: Liberación de recursos.
+## API Mock (Node)
+Se incluye carpeta `api/` con un servidor Express en memoria.
 
-## Razón de elección de widgets
+### Instalar y ejecutar (Windows CMD)
+```cmd
+cd api
+npm install
+npm run start
+```
+El servidor expone endpoints en `http://localhost:3000`.
 
-- **GridView**: Permite mostrar elementos en formato de cuadrícula, ideal para listas visuales.
-- **TabBar**: Facilita la organización de contenido en secciones.
-- **Drawer**: Añade navegación adicional y mejora la experiencia de usuario.
+### Sembrar datos de ejemplo
+```cmd
+curl -X POST http://localhost:3000/seed
+```
 
-# Talleres-Moviles - Async, Timer e Isolate
+### Endpoints
+```
+GET    /tasks
+POST   /tasks       (body: {id,title,completed,updatedAt})
+GET    /tasks/:id
+PUT    /tasks/:id   (body: {title?,completed?,updatedAt})
+DELETE /tasks/:id
+```
+Implementa política LWW comparando `updatedAt`.
 
-## Qué incluye
-- Demo de Future + async/await (simulación con Future.delayed).
-- Cronómetro con Timer (Iniciar / Pausar / Reanudar / Reiniciar).
-- Tarea CPU-bound ejecutada en un Isolate y comunicación por mensajes.
+## Generar APK Release
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=https://tu-servidor
+```
+APK generado: `build/app/outputs/flutter-apk/app-release.apk`.
 
-## Cuándo usar cada cosa
-- Future / async/await:
-  - Para operaciones asíncronas que no bloquean la UI (I/O, consultas, delays).
-  - Usar cuando quieres escribir código secuencial sin bloquear el hilo principal.
-- Timer:
-  - Para tareas periódicas o temporizadores (cronómetro, refresco cada X ms).
-  - Cancelar el Timer al pausar o en dispose para liberar recursos.
-- Isolate:
-  - Para tareas CPU-bound que bloquearían la UI si se ejecutan en el hilo principal.
-  - Crear un Isolate y comunicar mediante SendPort/ReceivePort.
+## Probar Modo Offline
+1. Ejecutar app con API activa.
+2. Crear/editar varias tareas.
+3. Apagar conexión (modo avión) y seguir operando.
+4. Encender conexión -> observar icono nube verde y sincronización (operaciones desaparecen de cola y se refleja en servidor).
 
-## Pantallas / flujo
-- Pantalla principal (Tab bar):
-  - Async: botón "Consultar (async)". Muestra estados: Idle → Cargando… → Éxito / Error.
-    - Logs: antes del await, durante delay, después del await.
-  - Timer: cronómetro actualizado cada 100 ms. Botones: Iniciar / Pausar / Reanudar / Reiniciar.
-    - Cancela el Timer en pause y en dispose.
-  - Isolate: botón para ejecutar la tarea pesada (suma grande). Se crea un Isolate, se envía N, se recibe resultado por ReceivePort y se muestra en UI.
+## Próximas Mejoras (opcionales)
+- Backoff exponencial real (delay según `attempt_count`).
+- Campo `syncedAt` en tasks para auditoría.
+- Manejo de conflictos interactivo.
+- Tests unitarios para repositorio y sincronización.
 
-## Notas de implementación
-- simulatedFetch usa Future.delayed(2–3s) y lanza error aleatorio para poder ver estado Error.
-- heavyComputeEntry es función top-level usada por Isolate.spawn.
-- Se imprimen trazas en consola mostrando el orden de ejecución para cada demo.
+## Notas
+El código previo del proyecto ha sido reemplazado para cumplir los requerimientos del reto To-Do Offline-First.
 
-## Flujo de uso recomendado
-1. Usar Future/async para operaciones I/O y UX fluidas.
-2. Usar Timer para mecánicas de tiempo controladas.
-3. Usar Isolate para offload de cómputo pesado; pasar resultados por SendPort.
-
-# Proyecto: Listado y Detalle usando api.chucknorris.io
-
-API usada
-- Endpoint principal para listado (búsqueda):
-  GET https://api.chucknorris.io/jokes/search?query={query}
-- Endpoint para detalle por id:
-  GET https://api.chucknorris.io/jokes/{id}
-
-Ejemplo de respuesta (search -> body.result[]):
-{
-  "categories": [],
-  "created_at": "2020-01-05 13:42:23.484083",
-  "icon_url": "https://assets.chucknorris.host/img/avatar/chuck-norris.png",
-  "id": "abc123",
-  "updated_at": "2020-01-05 13:42:23.484083",
-  "url": "https://api.chucknorris.io/jokes/abc123",
-  "value": "Chuck Norris joke text..."
-}
-
-Arquitectura mínima propuesta (carpetas)
-- lib/models/    -> Joke model (fromJson)
-- lib/services/  -> ChuckService (HTTP, manejo de statusCode y errores)
-- lib/views/     -> ListScreen (listado) y DetailScreen (detalle)
-- lib/main.dart  -> Configuración de rutas con go_router y arranque
-
-Rutas definidas (go_router)
-- name: home, path: '/' -> ListScreen (no params)
-- name: detail, path: '/detail/:id' -> DetailScreen
-  Parámetros enviados:
-    - path param 'id' (obligatorio)
-    - extra: objeto Joke (opcional, si se tiene desde la lista)
-
-Buenas prácticas aplicadas
-- No se realizan peticiones en build(); se usan initState() y servicios.
-- Manejo de estados: cargando / éxito / error con mensajes y Snackbar.
-- Validación de statusCode y rethrow para mostrar errores amigables.
-
-Notas
-- Añadir dependencia HTTP en pubspec.yaml si no existe:
-  dependencies:
-    http: ^0.13.0
-- Capturas/GIFs: generar localmente (Listado, Detalle, estado de carga/ error).
+## Dudas / Contacto
+Agregar en este archivo cualquier inquietud o anotación futura.
